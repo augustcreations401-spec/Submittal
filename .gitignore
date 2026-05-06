@@ -9,3 +9,4 @@ server/db/specmatch.db
 *.migrated
 dist/
 .DS_Store
+.superpowers/
