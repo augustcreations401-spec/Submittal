@@ -9,9 +9,16 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+const projectRoot = path.join(__dirname, '..');
+
+function resolveFromRoot(p, fallback) {
+  const resolved = p || fallback;
+  return path.isAbsolute(resolved) ? resolved : path.join(projectRoot, resolved);
+}
+
 // ensure upload + report dirs exist
-const tdsDir = path.resolve(process.env.TDS_DIR || './server/uploads/tds');
-const reportsDir = path.resolve(process.env.REPORTS_DIR || './server/reports');
+const tdsDir = resolveFromRoot(process.env.TDS_DIR, './server/uploads/tds');
+const reportsDir = resolveFromRoot(process.env.REPORTS_DIR, './server/reports');
 fs.mkdirSync(tdsDir, { recursive: true });
 fs.mkdirSync(reportsDir, { recursive: true });
 

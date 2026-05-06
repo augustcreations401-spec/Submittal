@@ -7,9 +7,12 @@ const db = require('../db/db');
 const { extractText } = require('../services/pdfParser');
 const { extractProductInfo } = require('../services/claudeService');
 
+const projectRoot = path.join(__dirname, '../../');
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const dir = path.resolve(process.env.TDS_DIR || './server/uploads/tds');
+    const raw = process.env.TDS_DIR || './server/uploads/tds';
+    const dir = path.isAbsolute(raw) ? raw : path.join(projectRoot, raw);
     fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
