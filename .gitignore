@@ -1,0 +1,11 @@
+node_modules/
+.env
+server/uploads/
+server/reports/
+server/db/specmatch.db
+*.db
+*.db-shm
+*.db-wal
+*.migrated
+dist/
+.DS_Store
