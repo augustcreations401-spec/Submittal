@@ -37,6 +37,7 @@ app.use('/api/categories', require('./routes/categories'));
 app.use('/api/tds', require('./routes/tds'));
 app.use('/api', require('./routes/analyses'));
 app.use('/api/reports', require('./routes/reports'));
+app.use('/api/projects', require('./routes/projects'));
 
 // init db
 initSchema();
