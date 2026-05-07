@@ -61,3 +61,10 @@ test('POST /api/ai/draft-compliance returns 400 without specSection', async () =
   const res = await request(app).post('/api/ai/draft-compliance').send({ productName: 'AirGuard' });
   expect(res.status).toBe(400);
 });
+
+test('POST /api/ai/compare-resubmittal returns 404 when revision not found', async () => {
+  const res = await request(app).post('/api/ai/compare-resubmittal').send({
+    revisionIdA: 'nonexistent-a', revisionIdB: 'nonexistent-b'
+  });
+  expect(res.status).toBe(404);
+});
