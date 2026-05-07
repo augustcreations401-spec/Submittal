@@ -77,3 +77,60 @@ describe('Projects CRUD', () => {
     expect(log).toBeTruthy();
   });
 });
+
+describe('Items CRUD', () => {
+  let projectId;
+  beforeEach(async () => {
+    const res = await request(app).post('/api/projects').send({ name: 'Items Project', gc_name: 'GC' });
+    projectId = res.body.id;
+  });
+
+  test('POST /api/projects/:id/items creates item', async () => {
+    const res = await request(app).post(`/api/projects/${projectId}/items`).send({
+      scope_item: 'Air Barrier System', spec_section: '07 2719',
+      spec_section_title: 'Air Barriers', deadline: '2026-08-01'
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.scope_item).toBe('Air Barrier System');
+    expect(res.body.status).toBe('not_yet_submitted');
+  });
+
+  test('GET /api/projects/:id/items returns items', async () => {
+    await request(app).post(`/api/projects/${projectId}/items`).send({ scope_item: 'Item A', spec_section: '07 0000' });
+    const res = await request(app).get(`/api/projects/${projectId}/items`);
+    expect(res.status).toBe(200);
+    expect(res.body.length).toBeGreaterThan(0);
+  });
+
+  test('GET /api/projects/:id/items/:itemId returns item with revisions array', async () => {
+    const create = await request(app).post(`/api/projects/${projectId}/items`).send({ scope_item: 'Item B', spec_section: '07 0000' });
+    const res = await request(app).get(`/api/projects/${projectId}/items/${create.body.id}`);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.revisions)).toBe(true);
+  });
+
+  test('PUT /api/projects/:id/items/:itemId updates status', async () => {
+    const create = await request(app).post(`/api/projects/${projectId}/items`).send({ scope_item: 'Item C', spec_section: '07 0000' });
+    const res = await request(app).put(`/api/projects/${projectId}/items/${create.body.id}`).send({ status: 'submitted' });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('submitted');
+  });
+
+  test('PUT status change logs status_changed audit event', async () => {
+    const create = await request(app).post(`/api/projects/${projectId}/items`).send({ scope_item: 'Item D', spec_section: '07 0000' });
+    await request(app).put(`/api/projects/${projectId}/items/${create.body.id}`).send({ status: 'submitted' });
+    const log = db.prepare("SELECT * FROM audit_log WHERE action='status_changed'").get();
+    expect(log).toBeTruthy();
+    const detail = JSON.parse(log.detail);
+    expect(detail.from).toBe('not_yet_submitted');
+    expect(detail.to).toBe('submitted');
+  });
+
+  test('DELETE /api/projects/:id/items/:itemId deletes item', async () => {
+    const create = await request(app).post(`/api/projects/${projectId}/items`).send({ scope_item: 'Del Item', spec_section: '07 0000' });
+    const del = await request(app).delete(`/api/projects/${projectId}/items/${create.body.id}`);
+    expect(del.status).toBe(200);
+    const get = await request(app).get(`/api/projects/${projectId}/items/${create.body.id}`);
+    expect(get.status).toBe(404);
+  });
+});
