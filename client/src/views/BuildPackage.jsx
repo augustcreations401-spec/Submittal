@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getItem, getProject, generatePackage, getFileUrl } from '../api/projects.js';
 import { draftCompliance } from '../api/ai.js';
@@ -26,10 +26,10 @@ export default function BuildPackage() {
   }, [id, itemId]);
 
   // all uploaded files across all revisions
-  const allFiles = (item?.revisions || []).flatMap(rev => {
+  const allFiles = useMemo(() => (item?.revisions || []).flatMap(rev => {
     const files = (() => { try { return JSON.parse(rev.uploaded_files || '[]'); } catch { return []; } })();
     return files.map(f => ({ revId: rev.id, revNum: rev.revision_number, filename: f, key: `${rev.id}::${f}` }));
-  });
+  }), [item]);
 
   function toggleFile(key) {
     setSelectedFiles(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
@@ -50,8 +50,12 @@ export default function BuildPackage() {
     setGenerating(true);
     setError(null);
     try {
-      const names = selectedFiles.map(k => k.split('::')[1]);
+      const names = selectedFiles.map(k => filenameFromKey(k));
       const response = await generatePackage(id, itemId, { selectedFiles: names, complianceStatement: statement });
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(errText || 'Failed to generate transmittal');
+      }
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -59,6 +63,11 @@ export default function BuildPackage() {
       URL.revokeObjectURL(url);
     } catch (e) { setError(e.message); }
     finally { setGenerating(false); }
+  }
+
+  function filenameFromKey(k) {
+    const sep = k.indexOf('::');
+    return sep === -1 ? k : k.slice(sep + 2);
   }
 
   if (loading) return <div style={{ padding: 32 }}><LoadingDot messages={['Loading…']} /></div>;
@@ -125,7 +134,7 @@ export default function BuildPackage() {
               <div style={{ marginTop: 8 }}>
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>Enclosed:</div>
                 <ol style={{ margin: 0, paddingLeft: 18 }}>
-                  {selectedFiles.map(k => <li key={k}>{k.split('::')[1]}</li>)}
+                  {selectedFiles.map(k => <li key={k}>{filenameFromKey(k)}</li>)}
                 </ol>
               </div>
             )}
@@ -151,7 +160,9 @@ export default function BuildPackage() {
             <div>
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--smoke)', marginBottom: 8 }}>Individual documents</div>
               {selectedFiles.map(k => {
-                const [revId, filename] = k.split('::');
+                const sep = k.indexOf('::');
+                const revId = k.slice(0, sep);
+                const filename = k.slice(sep + 2);
                 return (
                   <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, marginBottom: 6 }}>
                     <span style={{ color: 'var(--charcoal)' }}>{filename}</span>
