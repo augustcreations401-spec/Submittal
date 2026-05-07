@@ -1,5 +1,5 @@
 // client/src/views/ProjectDetail.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getProject, updateProject, deleteProject, createItem, deleteItem } from '../api/projects.js';
 import Header from '../components/Header.jsx';
@@ -19,12 +19,17 @@ export default function ProjectDetail() {
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null); // 'project' | itemId
 
-  const load = () => getProject(id).then(setProject).catch(e => setError(e.message)).finally(() => setLoading(false));
-  useEffect(() => { load(); }, [id]);
+  const load = useCallback(() => {
+    setLoading(true);
+    getProject(id).then(setProject).catch(e => setError(e.message)).finally(() => setLoading(false));
+  }, [id]);
+  useEffect(() => { load(); }, [load]);
 
   async function handleDeleteProject() {
-    await deleteProject(id);
-    navigate('/projects');
+    try {
+      await deleteProject(id);
+      navigate('/projects');
+    } catch (e) { setError(e.message); }
   }
 
   async function handleAddItem(e) {
@@ -42,8 +47,10 @@ export default function ProjectDetail() {
   }
 
   async function handleDeleteItem(itemId) {
-    await deleteItem(id, itemId);
-    load();
+    try {
+      await deleteItem(id, itemId);
+      load();
+    } catch (e) { setError(e.message); }
   }
 
   if (loading) return <div style={{ padding: 32 }}><LoadingDot messages={['Loading project…']} /></div>;
@@ -101,7 +108,7 @@ export default function ProjectDetail() {
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Adding…' : 'Add item →'}</button>
-              <button type="button" className="btn-secondary" onClick={() => setShowAddItem(false)}>Cancel</button>
+              <button type="button" className="btn-secondary" onClick={() => { setShowAddItem(false); setError(null); }}>Cancel</button>
             </div>
           </form>
         </div>
