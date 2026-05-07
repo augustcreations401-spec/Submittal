@@ -6,6 +6,7 @@ const db = require('../db/db');
 beforeAll(() => { initSchema(); });
 afterEach(() => {
   db.exec('DELETE FROM audit_log');
+  db.exec('DELETE FROM submittal_revisions');
   db.exec('DELETE FROM submittal_items');
   db.exec('DELETE FROM projects');
 });
@@ -132,5 +133,48 @@ describe('Items CRUD', () => {
     expect(del.status).toBe(200);
     const get = await request(app).get(`/api/projects/${projectId}/items/${create.body.id}`);
     expect(get.status).toBe(404);
+  });
+});
+
+describe('Revisions', () => {
+  let projectId, itemId;
+  beforeEach(async () => {
+    const p = await request(app).post('/api/projects').send({ name: 'Rev Project', gc_name: 'GC' });
+    projectId = p.body.id;
+    const i = await request(app).post(`/api/projects/${projectId}/items`).send({ scope_item: 'Roof System', spec_section: '07 5216' });
+    itemId = i.body.id;
+  });
+
+  test('POST revisions creates revision with revision_number=1', async () => {
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/items/${itemId}/revisions`)
+      .field('submitted_date', '2026-07-01')
+      .field('submitted_by', 'Thomas')
+      .field('response_status', 'submitted');
+    expect(res.status).toBe(201);
+    expect(res.body.revision_number).toBe(1);
+  });
+
+  test('second revision auto-increments revision_number', async () => {
+    await request(app).post(`/api/projects/${projectId}/items/${itemId}/revisions`).field('submitted_by', 'Thomas');
+    const res = await request(app).post(`/api/projects/${projectId}/items/${itemId}/revisions`).field('submitted_by', 'Thomas');
+    expect(res.body.revision_number).toBe(2);
+  });
+
+  test('DELETE revision removes the revision', async () => {
+    const create = await request(app).post(`/api/projects/${projectId}/items/${itemId}/revisions`).field('submitted_by', 'T');
+    const del = await request(app).delete(`/api/projects/${projectId}/items/${itemId}/revisions/${create.body.id}`);
+    expect(del.status).toBe(200);
+    const item = await request(app).get(`/api/projects/${projectId}/items/${itemId}`);
+    expect(item.body.revisions).toHaveLength(0);
+  });
+
+  test('POST .../package streams PDF with correct content-type', async () => {
+    await request(app).post(`/api/projects/${projectId}/items/${itemId}/revisions`).field('submitted_by', 'T');
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/items/${itemId}/package`)
+      .send({ selectedFiles: [], complianceStatement: 'Meets spec.' });
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/pdf/);
   });
 });

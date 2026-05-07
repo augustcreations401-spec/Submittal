@@ -3,6 +3,10 @@ const { randomUUID } = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const db = require('../db/db');
+const multer = require('multer');
+const { generateTransmittal } = require('../services/packageService');
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 30 * 1024 * 1024 } });
 
 const projectRoot = path.join(__dirname, '../../');
 
@@ -164,6 +168,77 @@ router.delete('/:id/items/:itemId', (req, res) => {
 
   logAudit(req.params.id, req.params.itemId, 'item_deleted', { scope_item: item.scope_item });
   res.json({ ok: true });
+});
+
+// POST /api/projects/:id/items/:itemId/revisions
+router.post('/:id/items/:itemId/revisions', upload.array('files'), (req, res) => {
+  const item = db.prepare('SELECT * FROM submittal_items WHERE id=? AND project_id=?').get(req.params.itemId, req.params.id);
+  if (!item) return res.status(404).json({ error: 'not found' });
+
+  const maxRev = db.prepare('SELECT MAX(revision_number) as m FROM submittal_revisions WHERE submittal_item_id=?').get(req.params.itemId);
+  const revNum = (maxRev.m || 0) + 1;
+
+  const id = randomUUID();
+  const now = new Date().toISOString();
+  const { submitted_date, submitted_by, response_date, response_status, reviewer_comments } = req.body;
+
+  const revisionsDir = getRevisionsDir();
+  const revDir = path.join(revisionsDir, id);
+  const uploadedFiles = [];
+  if (req.files && req.files.length > 0) {
+    fs.mkdirSync(revDir, { recursive: true });
+    for (const file of req.files) {
+      const dest = path.join(revDir, file.originalname);
+      fs.writeFileSync(dest, file.buffer);
+      uploadedFiles.push(file.originalname);
+    }
+  }
+
+  db.prepare(`INSERT INTO submittal_revisions (id, submittal_item_id, revision_number, submitted_date, submitted_by, response_date, response_status, reviewer_comments, uploaded_files, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)`)
+    .run(id, req.params.itemId, revNum, submitted_date || null, submitted_by || null,
+         response_date || null, response_status || null, reviewer_comments || null,
+         JSON.stringify(uploadedFiles), now);
+
+  logAudit(req.params.id, req.params.itemId, 'revision_logged', { revision_number: revNum });
+  res.status(201).json(db.prepare('SELECT * FROM submittal_revisions WHERE id=?').get(id));
+});
+
+// DELETE /api/projects/:id/items/:itemId/revisions/:revId
+router.delete('/:id/items/:itemId/revisions/:revId', (req, res) => {
+  const rev = db.prepare('SELECT * FROM submittal_revisions WHERE id=? AND submittal_item_id=?').get(req.params.revId, req.params.itemId);
+  if (!rev) return res.status(404).json({ error: 'not found' });
+  const revDir = path.join(getRevisionsDir(), req.params.revId);
+  if (fs.existsSync(revDir)) fs.rmSync(revDir, { recursive: true, force: true });
+  db.prepare('DELETE FROM submittal_revisions WHERE id=?').run(req.params.revId);
+  logAudit(req.params.id, req.params.itemId, 'revision_deleted', { revision_number: rev.revision_number });
+  res.json({ ok: true });
+});
+
+// GET /api/projects/:id/items/:itemId/revisions/:revId/files/:filename
+router.get('/:id/items/:itemId/revisions/:revId/files/:filename', (req, res) => {
+  const revDir = path.join(getRevisionsDir(), req.params.revId);
+  const filePath = path.join(revDir, req.params.filename);
+  if (!filePath.startsWith(revDir + path.sep) && filePath !== revDir) {
+    return res.status(400).json({ error: 'invalid path' });
+  }
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'not found' });
+  res.download(filePath);
+});
+
+// POST /api/projects/:id/items/:itemId/package
+router.post('/:id/items/:itemId/package', (req, res) => {
+  const project = db.prepare('SELECT * FROM projects WHERE id=?').get(req.params.id);
+  const item = db.prepare('SELECT * FROM submittal_items WHERE id=? AND project_id=?').get(req.params.itemId, req.params.id);
+  if (!project || !item) return res.status(404).json({ error: 'not found' });
+  const { selectedFiles = [], complianceStatement = '' } = req.body;
+  const latestRev = db.prepare('SELECT * FROM submittal_revisions WHERE submittal_item_id=? ORDER BY revision_number DESC LIMIT 1').get(req.params.itemId);
+  const revision = latestRev || { revision_number: 1 };
+  const doc = generateTransmittal(item, project, revision, selectedFiles, complianceStatement);
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="transmittal-${item.id}.pdf"`);
+  logAudit(req.params.id, req.params.itemId, 'package_generated', { selectedFiles: selectedFiles.length });
+  doc.pipe(res);
+  doc.end();
 });
 
 module.exports = router;
