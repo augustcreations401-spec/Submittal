@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getItem, updateItem, deleteRevision, getFileUrl } from '../api/projects.js';
+import { getItem, deleteRevision, getFileUrl } from '../api/projects.js';
 import { summarizeRejection, compareResubmittal } from '../api/ai.js';
 import Header from '../components/Header.jsx';
 import LoadingDot from '../components/LoadingDot.jsx';
@@ -21,9 +21,11 @@ export default function ItemDetail() {
   const [aiComparing, setAiComparing] = useState(false);
   const [aiResult, setAiResult] = useState(null);
   const [settings, setSettings] = useState({});
+  const [collapsedRevs, setCollapsedRevs] = useState(new Set());
 
   const load = useCallback(() => {
     setLoading(true);
+    setError(null);
     getItem(id, itemId).then(setItem).catch(e => setError(e.message)).finally(() => setLoading(false));
   }, [id, itemId]);
 
@@ -115,8 +117,22 @@ export default function ItemDetail() {
                   </div>
                 </div>
                 {rev.reviewer_comments && (
-                  <div style={{ fontSize: 13, color: 'var(--smoke)', marginBottom: 8, padding: '8px 10px', background: 'var(--cream)', borderRadius: 4 }}>
-                    {rev.reviewer_comments}
+                  <div style={{ marginBottom: 8 }}>
+                    <button
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--smoke)', padding: 0, marginBottom: 4 }}
+                      onClick={() => setCollapsedRevs(prev => {
+                        const next = new Set(prev);
+                        next.has(rev.id) ? next.delete(rev.id) : next.add(rev.id);
+                        return next;
+                      })}
+                    >
+                      {collapsedRevs.has(rev.id) ? '▶ GC comments' : '▼ GC comments'}
+                    </button>
+                    {!collapsedRevs.has(rev.id) && (
+                      <div style={{ fontSize: 13, color: 'var(--smoke)', padding: '8px 10px', background: 'var(--cream)', borderRadius: 4 }}>
+                        {rev.reviewer_comments}
+                      </div>
+                    )}
                   </div>
                 )}
                 {files.length > 0 && (
