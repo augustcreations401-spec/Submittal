@@ -203,6 +203,13 @@ router.post('/:id/items/:itemId/revisions', upload.array('files'), (req, res) =>
     return num;
   })();
 
+  // auto-update item status to match the revision outcome
+  const newStatus = response_status || (item.status === 'not_yet_submitted' ? 'submitted' : null);
+  if (newStatus && newStatus !== item.status) {
+    db.prepare('UPDATE submittal_items SET status=?, updated_at=? WHERE id=?').run(newStatus, now, req.params.itemId);
+    logAudit(req.params.id, req.params.itemId, 'status_changed', { from: item.status, to: newStatus });
+  }
+
   logAudit(req.params.id, req.params.itemId, 'revision_logged', { revision_number: revNum });
   res.status(201).json(db.prepare('SELECT * FROM submittal_revisions WHERE id=?').get(id));
 });

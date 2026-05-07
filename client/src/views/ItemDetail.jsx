@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getItem, deleteRevision, getFileUrl } from '../api/projects.js';
+import { getItem, updateItem, deleteRevision, getFileUrl } from '../api/projects.js';
 import { summarizeRejection, compareResubmittal } from '../api/ai.js';
 import Header from '../components/Header.jsx';
 import LoadingDot from '../components/LoadingDot.jsx';
@@ -22,6 +22,7 @@ export default function ItemDetail() {
   const [aiResult, setAiResult] = useState(null);
   const [settings, setSettings] = useState({});
   const [collapsedRevs, setCollapsedRevs] = useState(new Set());
+  const [statusUpdating, setStatusUpdating] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -33,6 +34,16 @@ export default function ItemDetail() {
     load();
     import('../api/settings.js').then(m => m.getSettings().then(setSettings).catch(() => {}));
   }, [load]);
+
+  async function handleStatusChange(newStatus) {
+    if (newStatus === item.status) return;
+    setStatusUpdating(true);
+    try {
+      await updateItem(id, itemId, { status: newStatus });
+      setItem(prev => ({ ...prev, status: newStatus }));
+    } catch (e) { setError(e.message); }
+    finally { setStatusUpdating(false); }
+  }
 
   async function handleDeleteRev(revId) {
     try {
@@ -194,7 +205,23 @@ export default function ItemDetail() {
             <div style={{ fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--smoke)', marginBottom: 14 }}>Item details</div>
             <div style={{ fontSize: 13, color: 'var(--smoke)', lineHeight: 2 }}>
               <div><strong>Spec section:</strong> {item.spec_section || '—'}</div>
-              <div><strong>Status:</strong> <SubmittalStatusPill status={item.status} /></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <strong>Status:</strong>
+                <select
+                  value={item.status}
+                  onChange={e => handleStatusChange(e.target.value)}
+                  disabled={statusUpdating}
+                  style={{ border: '1px solid #D0C9B8', borderRadius: 4, padding: '3px 8px', fontSize: 12, cursor: 'pointer', background: 'white' }}
+                >
+                  <option value="not_yet_submitted">Not submitted</option>
+                  <option value="submitted">Submitted</option>
+                  <option value="approved">Approved</option>
+                  <option value="approved_as_noted">Approved as noted</option>
+                  <option value="rejected">Rejected</option>
+                  <option value="revise_and_resubmit">Revise &amp; resubmit</option>
+                </select>
+                {statusUpdating && <span style={{ fontSize: 11, color: 'var(--smoke)' }}>Saving…</span>}
+              </div>
               <div><strong>Deadline:</strong> {item.deadline || '—'}</div>
               {item.notes && <div><strong>Notes:</strong> {item.notes}</div>}
             </div>
