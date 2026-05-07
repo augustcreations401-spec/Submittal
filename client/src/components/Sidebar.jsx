@@ -37,7 +37,7 @@ function SectionLabel({ text }) {
 }
 
 export default function Sidebar() {
-  const [stats, setStats] = useState({ analysesCount: 0, tdsCount: 0, lastTdsUpload: null });
+  const [stats, setStats] = useState({ analysesCount: 0, tdsCount: 0, lastTdsUpload: null, projectsCount: 0, openSubmittalsCount: 0 });
   const [company, setCompany] = useState('');
 
   useEffect(() => {
@@ -80,9 +80,9 @@ export default function Sidebar() {
       <NavItem to="/library" icon={BookOpen} label="Library" badge={stats.tdsCount} />
 
       <SectionLabel text="Submittals" />
-      <NavItem to="/projects" icon={FolderOpen} label="Projects" disabled />
-      <NavItem to="/submittals" icon={List} label="All Submittals" disabled />
-      <NavItem to="/audit" icon={Clock} label="Audit Trail" disabled />
+      <NavItem to="/projects" icon={FolderOpen} label="Projects" badge={stats.projectsCount} />
+      <NavItem to="/submittals" icon={List} label="All Submittals" badge={stats.openSubmittalsCount} />
+      <NavItem to="/audit" icon={Clock} label="Audit Trail" />
 
       <SectionLabel text="System" />
       <NavItem to="/settings" icon={Settings} label="Settings" />
