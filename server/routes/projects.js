@@ -67,17 +67,31 @@ router.delete('/:id', (req, res) => {
   const project = db.prepare('SELECT * FROM projects WHERE id=?').get(req.params.id);
   if (!project) return res.status(404).json({ error: 'not found' });
   const revisionsBase = getRevisionsDir();
+
+  // collect all revision dirs to delete before touching DB
   const items = db.prepare('SELECT id FROM submittal_items WHERE project_id=?').all(req.params.id);
+  const revDirsToDelete = [];
   for (const item of items) {
     const revisions = db.prepare('SELECT id FROM submittal_revisions WHERE submittal_item_id=?').all(item.id);
     for (const rev of revisions) {
-      const dir = path.join(revisionsBase, rev.id);
-      if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true });
+      revDirsToDelete.push(path.join(revisionsBase, rev.id));
     }
-    db.prepare('DELETE FROM submittal_revisions WHERE submittal_item_id=?').run(item.id);
   }
-  db.prepare('DELETE FROM submittal_items WHERE project_id=?').run(req.params.id);
-  db.prepare('DELETE FROM projects WHERE id=?').run(req.params.id);
+
+  // delete DB records in a transaction
+  db.transaction(() => {
+    for (const item of items) {
+      db.prepare('DELETE FROM submittal_revisions WHERE submittal_item_id=?').run(item.id);
+    }
+    db.prepare('DELETE FROM submittal_items WHERE project_id=?').run(req.params.id);
+    db.prepare('DELETE FROM projects WHERE id=?').run(req.params.id);
+  })();
+
+  // delete files after DB is clean
+  for (const dir of revDirsToDelete) {
+    if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
+  }
+
   logAudit(req.params.id, null, 'project_deleted', { name: project.name });
   res.json({ ok: true });
 });

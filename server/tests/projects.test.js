@@ -62,4 +62,18 @@ describe('Projects CRUD', () => {
     const log = db.prepare("SELECT * FROM audit_log WHERE action='project_created'").get();
     expect(log).toBeTruthy();
   });
+
+  test('PUT /api/projects/:id logs project_updated audit event', async () => {
+    const create = await request(app).post('/api/projects').send({ name: 'Audit PUT Test', gc_name: 'GC' });
+    await request(app).put(`/api/projects/${create.body.id}`).send({ name: 'Updated Name' });
+    const log = db.prepare("SELECT * FROM audit_log WHERE action='project_updated'").get();
+    expect(log).toBeTruthy();
+  });
+
+  test('DELETE /api/projects/:id logs project_deleted audit event', async () => {
+    const create = await request(app).post('/api/projects').send({ name: 'Audit DEL Test', gc_name: 'GC' });
+    await request(app).delete(`/api/projects/${create.body.id}`);
+    const log = db.prepare("SELECT * FROM audit_log WHERE action='project_deleted'").get();
+    expect(log).toBeTruthy();
+  });
 });
