@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getProjects, createProject } from '../api/projects.js';
-import { getStats } from '../api/settings.js';
 import Header from '../components/Header.jsx';
 import LoadingDot from '../components/LoadingDot.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
-import SubmittalStatusPill from '../components/SubmittalStatusPill.jsx';
 
 const STATUS_ORDER = ['approved','approved_as_noted','submitted','revise_and_resubmit','rejected','not_yet_submitted'];
 const STATUS_COLORS = { approved:'#2E7D32', approved_as_noted:'#00695C', submitted:'#F0B429', revise_and_resubmit:'#C68C0F', rejected:'#C62828', not_yet_submitted:'#CCC' };
@@ -13,7 +11,6 @@ const STATUS_COLORS = { approved:'#2E7D32', approved_as_noted:'#00695C', submitt
 export default function ProjectsDashboard() {
   const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
-  const [stats, setStats] = useState({ projectsCount: 0, openSubmittalsCount: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
@@ -21,8 +18,8 @@ export default function ProjectsDashboard() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    Promise.all([getProjects(), getStats()])
-      .then(([p, s]) => { setProjects(p); setStats(s); })
+    getProjects()
+      .then(p => setProjects(p))
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
@@ -30,6 +27,7 @@ export default function ProjectsDashboard() {
   async function handleCreate(e) {
     e.preventDefault();
     if (!formData.name.trim()) return;
+    setError(null);
     setSaving(true);
     try {
       const p = await createProject(formData);
@@ -40,9 +38,10 @@ export default function ProjectsDashboard() {
     finally { setSaving(false); }
   }
 
+  const now = new Date();
   const itemsThisWeek = projects.reduce((acc, p) => {
     if (!p.nearestDeadline) return acc;
-    const days = (new Date(p.nearestDeadline) - new Date()) / 86400000;
+    const days = (new Date(p.nearestDeadline) - now) / 86400000;
     return days >= 0 && days <= 7 ? acc + (p.itemCount || 0) : acc;
   }, 0);
 
@@ -115,7 +114,7 @@ export default function ProjectsDashboard() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
           {projects.map(p => {
             const total = p.itemCount || 0;
-            const isOverdue = p.nearestDeadline && new Date(p.nearestDeadline) < new Date();
+            const isOverdue = p.nearestDeadline && new Date(p.nearestDeadline) < now;
             return (
               <div key={p.id} className="card" style={{ cursor: 'pointer', borderLeft: isOverdue ? '3px solid var(--amber)' : undefined }}
                    onClick={() => navigate(`/projects/${p.id}`)}>
