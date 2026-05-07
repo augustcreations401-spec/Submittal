@@ -139,7 +139,8 @@ router.put('/:id/items/:itemId', (req, res) => {
   if (req.body.status && req.body.status !== item.status) {
     logAudit(req.params.id, req.params.itemId, 'status_changed', { from: item.status, to: req.body.status });
   } else {
-    logAudit(req.params.id, req.params.itemId, 'item_updated', updates);
+    const { updated_at: _ts, ...auditDetail } = updates;
+    logAudit(req.params.id, req.params.itemId, 'item_updated', auditDetail);
   }
   res.json(db.prepare('SELECT * FROM submittal_items WHERE id=?').get(req.params.itemId));
 });
