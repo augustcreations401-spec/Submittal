@@ -5,7 +5,11 @@ function parseJson(raw) {
   if (text.startsWith('```')) {
     text = text.replace(/^```[a-z]*\n?/, '').replace(/\n?```$/, '').trim();
   }
-  return JSON.parse(text);
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error(`AI returned non-JSON: ${text.slice(0, 200)}`);
+  }
 }
 
 async function summarizeRejection(reviewerComments, apiKey) {
@@ -18,7 +22,9 @@ async function summarizeRejection(reviewerComments, apiKey) {
       content: `You are a construction submittal specialist. A GC has responded to a submittal with the following reviewer comments. Extract a brief summary and a list of specific action items the subcontractor must address before resubmitting. Respond in JSON only: {"summary": "...", "actionItems": ["..."]}\n\nReviewer comments:\n${reviewerComments}`
     }]
   });
-  return parseJson(msg.content[0].text);
+  const text = msg.content?.[0]?.text;
+  if (!text) throw new Error('AI returned empty response');
+  return parseJson(text);
 }
 
 async function compareResubmittal(revAComments, revAFiles, revBComments, revBFiles, apiKey) {
@@ -28,10 +34,12 @@ async function compareResubmittal(revAComments, revAFiles, revBComments, revBFil
     max_tokens: 1024,
     messages: [{
       role: 'user',
-      content: `You are a construction submittal specialist. Compare two revision submissions and identify what was addressed and what remains outstanding. Respond in JSON only: {"addressed": ["..."], "outstanding": ["..."], "summary": "..."}\n\nRevision A (older):\nComments: ${revAComments || 'none'}\nFiles: ${revAFiles.join(', ') || 'none'}\n\nRevision B (newer):\nComments: ${revBComments || 'none'}\nFiles: ${revBFiles.join(', ') || 'none'}`
+      content: `You are a construction submittal specialist. Compare two revision submissions and identify what was addressed and what remains outstanding. Respond in JSON only: {"addressed": ["..."], "outstanding": ["..."], "summary": "..."}\n\nRevision A (older):\nComments: ${revAComments || 'none'}\nFiles: ${(revAFiles || []).join(', ') || 'none'}\n\nRevision B (newer):\nComments: ${revBComments || 'none'}\nFiles: ${(revBFiles || []).join(', ') || 'none'}`
     }]
   });
-  return parseJson(msg.content[0].text);
+  const text = msg.content?.[0]?.text;
+  if (!text) throw new Error('AI returned empty response');
+  return parseJson(text);
 }
 
 async function draftComplianceStatement(specSection, specText, productName, manufacturer, apiKey) {
@@ -44,7 +52,9 @@ async function draftComplianceStatement(specSection, specText, productName, manu
       content: `You are a construction submittal specialist. Draft a professional compliance statement asserting that the product meets the specification section. Respond in JSON only: {"statement": "..."}\n\nSpec Section: ${specSection}\nSpec Text: ${specText}\nProduct: ${productName}\nManufacturer: ${manufacturer}`
     }]
   });
-  return parseJson(msg.content[0].text);
+  const text = msg.content?.[0]?.text;
+  if (!text) throw new Error('AI returned empty response');
+  return parseJson(text);
 }
 
 module.exports = { summarizeRejection, compareResubmittal, draftComplianceStatement };
