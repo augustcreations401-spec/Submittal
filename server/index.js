@@ -40,6 +40,7 @@ app.use('/api/reports', require('./routes/reports'));
 app.use('/api/projects', require('./routes/projects'));
 app.use('/api/submittals', require('./routes/submittals'));
 app.use('/api/audit', require('./routes/audit'));
+app.use('/api/ai', require('./routes/ai'));
 
 // init db
 initSchema();
