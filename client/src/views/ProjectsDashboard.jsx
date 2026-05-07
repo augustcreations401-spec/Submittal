@@ -43,7 +43,7 @@ export default function ProjectsDashboard() {
   const itemsThisWeek = projects.reduce((acc, p) => {
     if (!p.nearestDeadline) return acc;
     const days = (new Date(p.nearestDeadline) - new Date()) / 86400000;
-    return days >= 0 && days <= 7 ? acc + 1 : acc;
+    return days >= 0 && days <= 7 ? acc + (p.itemCount || 0) : acc;
   }, 0);
 
   const labelStyle = { fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--smoke)', display: 'block', marginBottom: 4 };
