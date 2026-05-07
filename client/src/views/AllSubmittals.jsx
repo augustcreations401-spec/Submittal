@@ -44,11 +44,29 @@ export default function AllSubmittals() {
       <h1 className="display" style={{ margin: '32px 0 24px' }}>All submittals.</h1>
 
       <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-          style={{ border: '1px solid #D0C9B8', borderRadius: 4, padding: '6px 10px', fontSize: 13 }}>
-          <option value="">All statuses</option>
-          {ALL_STATUSES.map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
-        </select>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {ALL_STATUSES.map(s => {
+            const active = filterStatus === s;
+            return (
+              <button key={s}
+                onClick={() => setFilterStatus(prev => prev === s ? '' : s)}
+                style={{
+                  padding: '4px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: 'none',
+                  background: active ? 'var(--charcoal)' : '#E8E0D0',
+                  color: active ? 'var(--cream)' : 'var(--smoke)',
+                  transition: 'background 0.15s',
+                }}>
+                {s.replace(/_/g, ' ')}
+              </button>
+            );
+          })}
+          {filterStatus && (
+            <button onClick={() => setFilterStatus('')}
+              style={{ padding: '4px 12px', borderRadius: 999, fontSize: 12, cursor: 'pointer', border: '1px solid #D0C9B8', background: 'transparent', color: 'var(--smoke)' }}>
+              Clear ×
+            </button>
+          )}
+        </div>
         <select value={filterProject} onChange={e => setFilterProject(e.target.value)}
           style={{ border: '1px solid #D0C9B8', borderRadius: 4, padding: '6px 10px', fontSize: 13 }}>
           <option value="">All projects</option>

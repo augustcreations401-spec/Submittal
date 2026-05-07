@@ -36,7 +36,7 @@ export default function AuditTrail() {
     const params = {};
     if (filterProject) params.project_id = filterProject;
     getAuditLog(params)
-      .then(setEntries)
+      .then(data => setEntries([...data].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))))
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   }, [filterProject]);
