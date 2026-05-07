@@ -76,10 +76,27 @@ function initSchema() {
       reviewer_comments TEXT,
       ai_summary TEXT,
       ai_action_items TEXT,
-      package_docs TEXT,
+      uploaded_files TEXT,
       created_at TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id          TEXT PRIMARY KEY,
+      project_id  TEXT,
+      item_id     TEXT,
+      action      TEXT NOT NULL,
+      detail      TEXT,
+      created_at  TEXT
+    );
   `);
+
+  // rename package_docs → uploaded_files if old column still exists
+  const cols = db.prepare('PRAGMA table_info(submittal_revisions)').all().map(c => c.name);
+  if (cols.includes('package_docs') && !cols.includes('uploaded_files')) {
+    db.exec('ALTER TABLE submittal_revisions RENAME COLUMN package_docs TO uploaded_files');
+  } else if (!cols.includes('uploaded_files')) {
+    db.exec('ALTER TABLE submittal_revisions ADD COLUMN uploaded_files TEXT');
+  }
 
   // seed default settings
   const defaults = [
