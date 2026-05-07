@@ -38,6 +38,8 @@ app.use('/api/tds', require('./routes/tds'));
 app.use('/api', require('./routes/analyses'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/projects', require('./routes/projects'));
+app.use('/api/submittals', require('./routes/submittals'));
+app.use('/api/audit', require('./routes/audit'));
 
 // init db
 initSchema();
