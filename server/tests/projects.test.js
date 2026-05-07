@@ -178,3 +178,14 @@ describe('Revisions', () => {
     expect(res.headers['content-type']).toMatch(/pdf/);
   });
 });
+
+describe('Stats endpoint', () => {
+  test('GET /api/stats includes projectsCount and openSubmittalsCount', async () => {
+    const res = await request(app).get('/api/stats');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('projectsCount');
+    expect(res.body).toHaveProperty('openSubmittalsCount');
+    expect(typeof res.body.projectsCount).toBe('number');
+    expect(typeof res.body.openSubmittalsCount).toBe('number');
+  });
+});

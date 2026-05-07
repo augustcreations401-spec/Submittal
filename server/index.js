@@ -19,8 +19,10 @@ function resolveFromRoot(p, fallback) {
 // ensure upload + report dirs exist
 const tdsDir = resolveFromRoot(process.env.TDS_DIR, './server/uploads/tds');
 const reportsDir = resolveFromRoot(process.env.REPORTS_DIR, './server/reports');
+const revisionsDir = resolveFromRoot(process.env.REVISIONS_DIR, './server/uploads/revisions');
 fs.mkdirSync(tdsDir, { recursive: true });
 fs.mkdirSync(reportsDir, { recursive: true });
+fs.mkdirSync(revisionsDir, { recursive: true });
 
 // stats endpoint (before other routes to avoid :id conflicts)
 app.get('/api/stats', (req, res) => {
@@ -28,7 +30,9 @@ app.get('/api/stats', (req, res) => {
   const analysesCount = db.prepare('SELECT COUNT(*) as n FROM analyses').get().n;
   const tdsCount = db.prepare('SELECT COUNT(*) as n FROM tds_entries').get().n;
   const lastSync = db.prepare("SELECT value FROM settings WHERE key='last_tds_upload'").get();
-  res.json({ analysesCount, tdsCount, lastTdsUpload: lastSync ? lastSync.value : null });
+  const projectsCount = db.prepare('SELECT COUNT(*) as n FROM projects').get().n;
+  const openSubmittalsCount = db.prepare("SELECT COUNT(*) as n FROM submittal_items WHERE status NOT IN ('approved','approved_as_noted')").get().n;
+  res.json({ analysesCount, tdsCount, lastTdsUpload: lastSync ? lastSync.value : null, projectsCount, openSubmittalsCount });
 });
 
 // routes
