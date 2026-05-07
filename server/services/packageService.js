@@ -22,7 +22,7 @@ function generateTransmittal(item, project, revision, selectedFiles, complianceS
   doc.font('Helvetica-Bold').text('Submittal Item');
   doc.font('Helvetica').text(`${item.spec_section || '—'}  ${item.spec_section_title || ''}`);
   doc.text(`Scope: ${item.scope_item || '—'}`);
-  doc.text(`Revision: ${revision.revision_number}`);
+  doc.text(`Revision: ${revision.revision_number ?? '—'}`);
   doc.moveDown(0.8);
 
   // Compliance statement
