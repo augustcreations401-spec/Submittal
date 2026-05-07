@@ -175,29 +175,33 @@ router.post('/:id/items/:itemId/revisions', upload.array('files'), (req, res) =>
   const item = db.prepare('SELECT * FROM submittal_items WHERE id=? AND project_id=?').get(req.params.itemId, req.params.id);
   if (!item) return res.status(404).json({ error: 'not found' });
 
-  const maxRev = db.prepare('SELECT MAX(revision_number) as m FROM submittal_revisions WHERE submittal_item_id=?').get(req.params.itemId);
-  const revNum = (maxRev.m || 0) + 1;
-
-  const id = randomUUID();
-  const now = new Date().toISOString();
-  const { submitted_date, submitted_by, response_date, response_status, reviewer_comments } = req.body;
-
+  // write files to disk first (outside transaction)
   const revisionsDir = getRevisionsDir();
+  const id = randomUUID();
   const revDir = path.join(revisionsDir, id);
   const uploadedFiles = [];
   if (req.files && req.files.length > 0) {
     fs.mkdirSync(revDir, { recursive: true });
     for (const file of req.files) {
-      const dest = path.join(revDir, file.originalname);
+      const safeName = path.basename(file.originalname);
+      const dest = path.join(revDir, safeName);
       fs.writeFileSync(dest, file.buffer);
-      uploadedFiles.push(file.originalname);
+      uploadedFiles.push(safeName);
     }
   }
 
-  db.prepare(`INSERT INTO submittal_revisions (id, submittal_item_id, revision_number, submitted_date, submitted_by, response_date, response_status, reviewer_comments, uploaded_files, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)`)
-    .run(id, req.params.itemId, revNum, submitted_date || null, submitted_by || null,
-         response_date || null, response_status || null, reviewer_comments || null,
-         JSON.stringify(uploadedFiles), now);
+  // atomic revision number + insert
+  const now = new Date().toISOString();
+  const { submitted_date, submitted_by, response_date, response_status, reviewer_comments } = req.body;
+  const revNum = db.transaction(() => {
+    const maxRev = db.prepare('SELECT MAX(revision_number) as m FROM submittal_revisions WHERE submittal_item_id=?').get(req.params.itemId);
+    const num = (maxRev.m || 0) + 1;
+    db.prepare(`INSERT INTO submittal_revisions (id, submittal_item_id, revision_number, submitted_date, submitted_by, response_date, response_status, reviewer_comments, uploaded_files, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)`)
+      .run(id, req.params.itemId, num, submitted_date || null, submitted_by || null,
+           response_date || null, response_status || null, reviewer_comments || null,
+           JSON.stringify(uploadedFiles), now);
+    return num;
+  })();
 
   logAudit(req.params.id, req.params.itemId, 'revision_logged', { revision_number: revNum });
   res.status(201).json(db.prepare('SELECT * FROM submittal_revisions WHERE id=?').get(id));
