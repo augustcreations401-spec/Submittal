@@ -20,7 +20,7 @@ test('settings seeds coordinator_name default', () => {
 
 test('audit_log table exists', () => {
   const row = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='audit_log'").get();
-  expect(row).toBeTruthy();
+  expect(row).toBeDefined();
 });
 
 test('submittal_revisions has uploaded_files column', () => {

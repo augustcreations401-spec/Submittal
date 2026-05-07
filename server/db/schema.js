@@ -86,7 +86,7 @@ function initSchema() {
       item_id     TEXT,
       action      TEXT NOT NULL,
       detail      TEXT,
-      created_at  TEXT
+      created_at  TEXT NOT NULL
     );
   `);
 
